@@ -3,11 +3,15 @@ package com.bolsadeideas.springboot.backend.apirest.Controllers;
 import com.bolsadeideas.springboot.backend.apirest.models.entity.Cliente;
 import com.bolsadeideas.springboot.backend.apirest.models.services.IClienteServices;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 //al ser una api rest se añade la anotacion rest controller y request para reaalizar peticiones
 //la anotacion crossorigin nos permite activar el CORS para compartir nuestros datos en destinos cruzados
@@ -28,17 +32,53 @@ public class ClienteRestController {
     }
 
     //va a tener el pathvariable ya que el id podria cambiar
+    //devolvemos un response entity de tipo generico por si devuelve un cliente, varios mensajes
+    //de error u otros datos
     @GetMapping("/clientes/{id}")
-    public Cliente show(@PathVariable Long id){
-        return clienteService.findById(id);
+    public ResponseEntity<?> show(@PathVariable Long id){
+        Cliente cliente = null;
+
+        //creamos un map que devuelve string y objetos
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            cliente = clienteService.findById(id);
+        } catch (DataAccessException e){
+            response.put("mensaje", "Error al realizar la consulta en la base de datos");
+            response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        //devolvemos el objeto cliente y un status 200 si sale bien
+        if(cliente == null){
+            //si no existe el cliente cambiamos la respuesta creada
+            response.put("mensaje", "El cliente ID: ".concat(id.toString().concat(" no existe en la base de datos")));
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<Cliente>(cliente, HttpStatus.OK);
     }
 
     //el requestbody se pone porque viene en un json y asi podemos transformar los datos
     @PostMapping("/clientes")
     @ResponseStatus(HttpStatus.CREATED)
-    public Cliente create(@RequestBody Cliente cliente){
+    public ResponseEntity<?> create(@RequestBody Cliente cliente){
+        Cliente clienteNew = null;
         cliente.setCreateAt(new Date());
-        return clienteService.save(cliente);
+
+        //creamos un map que devuelve string y objetos
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            clienteNew = clienteService.save(cliente);
+        } catch (DataAccessException e) {
+            response.put("mensaje", "Error al realizar el insert en la base de datos");
+            response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        response.put("éxito", "El cliente ha sido creado con éxito");
+        response.put("cliente", clienteNew);
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.CREATED);
     }
 
     //la anotacion putmapping se usa al actualizar datos
