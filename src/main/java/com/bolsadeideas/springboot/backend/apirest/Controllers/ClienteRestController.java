@@ -6,12 +6,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.validation.Valid;
+import java.util.*;
+import java.util.stream.Collectors;
 
 //al ser una api rest se añade la anotacion rest controller y request para reaalizar peticiones
 //la anotacion crossorigin nos permite activar el CORS para compartir nuestros datos en destinos cruzados
@@ -59,14 +60,35 @@ public class ClienteRestController {
     }
 
     //el requestbody se pone porque viene en un json y asi podemos transformar los datos
+    //importamos la anotacion valid para realizar una validacion y le pasamos el objeto BindingResult
     @PostMapping("/clientes")
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<?> create(@RequestBody Cliente cliente){
+    public ResponseEntity<?> create(@Valid @RequestBody Cliente cliente, BindingResult result){
         Cliente clienteNew = null;
         cliente.setCreateAt(new Date());
 
         //creamos un map que devuelve string y objetos
         Map<String, Object> response = new HashMap<>();
+
+        //si el resultado de la validacion tiene errores
+        if(result.hasErrors()){
+            //creamos una lista con los errores y la recorremos
+            //Creamos el objeto field error para ver los campos con error y los vamos añadiendo a la lista
+            /*List<String> errors = new ArrayList<>();
+            for(FieldError err: result.getFieldErrors()){
+                errors.add("El campo "+err.getField()+" "+err.getDefaultMessage());
+            }*/
+
+            //esta es otra manera de hacer lo de arriba
+            List<String> errors = result.getFieldErrors()
+                            .stream()
+                            .map(err -> {
+                                return "El campo '" + err.getField()+"' " + err.getDefaultMessage();
+                            }).collect(Collectors.toList());
+
+            response.put("errors", errors);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
+        }
 
         try {
             clienteNew = clienteService.save(cliente);
@@ -83,12 +105,31 @@ public class ClienteRestController {
 
     //la anotacion putmapping se usa al actualizar datos
     @PutMapping("/clientes/{id}")
-    public ResponseEntity<?> update(@RequestBody Cliente cliente, @PathVariable Long id){
+    public ResponseEntity<?> update(@Valid @RequestBody Cliente cliente, BindingResult result, @PathVariable Long id){
         Cliente clienteActual = clienteService.findById(id);
         Cliente clienteUpdated = null;
 
         //creamos un map que devuelve string y objetos
         Map<String, Object> response = new HashMap<>();
+
+        if(result.hasErrors()){
+            //creamos una lista con los errores y la recorremos
+            //Creamos el objeto field error para ver los campos con error y los vamos añadiendo a la lista
+            /*List<String> errors = new ArrayList<>();
+            for(FieldError err: result.getFieldErrors()){
+                errors.add("El campo "+err.getField()+" "+err.getDefaultMessage());
+            }*/
+
+            //esta es otra manera de hacer lo de arriba
+            List<String> errors = result.getFieldErrors()
+                    .stream()
+                    .map(err -> {
+                        return "El campo '" + err.getField()+"' " + err.getDefaultMessage();
+                    }).collect(Collectors.toList());
+
+            response.put("errors", errors);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
+        }
 
         if(clienteActual == null){
             //si no existe el cliente cambiamos la respuesta creada
